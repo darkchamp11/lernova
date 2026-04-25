@@ -38,8 +38,16 @@ export default function RealTimeQuiz({ topic, difficulty }: RealTimeQuizProps) {
         throw new Error(data.error || 'Failed to generate quiz');
       }
 
-      const data: QuizQuestion = await response.json();
-      setQuiz(data);
+      const data = await response.json();
+      // The API returns { questions: [...] } — extract the first MCQ
+      const questions = data.questions || [];
+      const firstMcq = questions.find(
+        (q: { type: string }) => q.type === 'mcq',
+      );
+      if (!firstMcq) {
+        throw new Error('No MCQ question generated');
+      }
+      setQuiz(firstMcq);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
