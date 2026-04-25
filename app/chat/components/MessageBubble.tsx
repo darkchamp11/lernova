@@ -1,43 +1,107 @@
 "use client";
 
-import { Message } from "../hooks/useOllamaChat";
+import type { Message } from "../hooks/useOllamaChat";
 
 interface MessageBubbleProps {
   message: Message;
 }
 
-// Simple markdown to HTML converter
+/**
+ * Converts markdown text to HTML.
+ * Handles: headings, horizontal rules, bold, italic, inline code,
+ * code blocks, unordered lists, ordered lists, and line breaks.
+ */
 const formatMarkdown = (text: string): string => {
   let formatted = text;
-  
-  // Convert **bold** to <strong>
+
+  // Escape HTML entities first (prevent XSS)
+  formatted = formatted
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Code blocks (``` ... ```)
+  formatted = formatted.replace(
+    /```(\w*)\n?([\s\S]*?)```/g,
+    '<pre class="bg-gray-800 dark:bg-gray-900 text-green-300 rounded-lg p-4 my-3 overflow-x-auto text-sm font-mono whitespace-pre-wrap"><code>$2</code></pre>'
+  );
+
+  // Inline code (`code`)
+  formatted = formatted.replace(
+    /`([^`]+)`/g,
+    '<code class="bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-gray-100 px-1.5 py-0.5 rounded text-sm font-mono">$1</code>'
+  );
+
+  // Horizontal rules (--- or ___ or ***)
+  formatted = formatted.replace(
+    /^[\s]*([-_*]){3,}[\s]*$/gm,
+    '<hr class="border-gray-300 dark:border-gray-600 my-4" />'
+  );
+
+  // Headings (### h3, ## h2, # h1)
+  formatted = formatted.replace(
+    /^### (.+)$/gm,
+    '<h3 class="text-base font-bold mt-4 mb-1">$1</h3>'
+  );
+  formatted = formatted.replace(
+    /^## (.+)$/gm,
+    '<h2 class="text-lg font-bold mt-4 mb-1">$1</h2>'
+  );
+  formatted = formatted.replace(
+    /^# (.+)$/gm,
+    '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>'
+  );
+
+  // Bold (**text** or __text__)
   formatted = formatted.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  
-  // Convert *italic* to <em>
-  formatted = formatted.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  
-  // Convert _italic_ to <em>
-  formatted = formatted.replace(/_(.+?)_/g, "<em>$1</em>");
-  
-  // Convert `code` to <code>
-  formatted = formatted.replace(/`(.+?)`/g, '<code class="bg-gray-800 dark:bg-gray-600 px-1 py-0.5 rounded text-sm">$1</code>');
-  
-  // Convert numbered lists
-  formatted = formatted.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
-  
-  // Wrap consecutive <li> items in <ol>
-  formatted = formatted.replace(/(<li>.*<\/li>\s*)+/g, (match) => `<ol class="list-decimal ml-5 space-y-1">${match}</ol>`);
-  
+  formatted = formatted.replace(/__(.+?)__/g, "<strong>$1</strong>");
+
+  // Italic (*text* or _text_) — but not inside words like file_name
+  formatted = formatted.replace(/(?<!\w)\*([^*\n]+)\*(?!\w)/g, "<em>$1</em>");
+  formatted = formatted.replace(/(?<!\w)_([^_\n]+)_(?!\w)/g, "<em>$1</em>");
+
+  // Unordered list items (- item or * item)
+  formatted = formatted.replace(
+    /^[\s]*[-*]\s+(.+)$/gm,
+    '<li class="ml-4 list-disc">$1</li>'
+  );
+
+  // Ordered list items (1. item)
+  formatted = formatted.replace(
+    /^[\s]*\d+\.\s+(.+)$/gm,
+    '<li class="ml-4 list-decimal">$1</li>'
+  );
+
+  // Wrap consecutive <li> items in <ul> or <ol>
+  formatted = formatted.replace(
+    /(<li class="ml-4 list-disc">[\s\S]*?<\/li>)(\s*<li class="ml-4 list-disc">[\s\S]*?<\/li>)*/g,
+    (match) => `<ul class="my-2 space-y-1">${match}</ul>`
+  );
+  formatted = formatted.replace(
+    /(<li class="ml-4 list-decimal">[\s\S]*?<\/li>)(\s*<li class="ml-4 list-decimal">[\s\S]*?<\/li>)*/g,
+    (match) => `<ol class="my-2 space-y-1">${match}</ol>`
+  );
+
+  // Convert remaining newlines to <br> (but not inside <pre> blocks and not double newlines already handled)
+  // First, collapse triple+ newlines to double
+  formatted = formatted.replace(/\n{3,}/g, "\n\n");
+  // Double newlines become paragraph breaks
+  formatted = formatted.replace(/\n\n/g, '<div class="my-3"></div>');
+  // Single newlines become <br>
+  formatted = formatted.replace(/\n/g, "<br />");
+
   return formatted;
 };
 
 export default function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === "user";
-  const formattedContent = isUser ? message.content : formatMarkdown(message.content);
+  const formattedContent = isUser
+    ? message.content
+    : formatMarkdown(message.content);
 
   return (
     <div
-      className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300`}
+      className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}
     >
       <div
         className={`max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-3 ${
@@ -68,11 +132,14 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             </span>
           </div>
         )}
-        <div className="whitespace-pre-wrap break-words leading-relaxed">
+        <div className="break-words leading-relaxed">
           {isUser ? (
-            message.content
+            <span className="whitespace-pre-wrap">{message.content}</span>
           ) : (
-            <div dangerouslySetInnerHTML={{ __html: formattedContent }} />
+            <div
+              className="prose-chat"
+              dangerouslySetInnerHTML={{ __html: formattedContent }}
+            />
           )}
         </div>
       </div>

@@ -1,19 +1,29 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+
+const STORAGE_KEY = "lernova_chat_messages";
 
 export interface Message {
   role: "system" | "user" | "assistant";
   content: string;
 }
 
+export type Provider = "ollama" | "groq";
+
+export interface ChatConfig {
+  provider: Provider;
+  model: string;
+  // Ollama
+  ollamaUrl: string;
+  // Groq
+  groqApiKey: string;
+}
+
 // Helper function to remove thinking context from AI responses
 const removeThinkingContext = (text: string): string => {
-  // Remove <think>...</think> tags and their content (case-insensitive, multiline)
   let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gim, "");
-  // Also remove any orphaned opening/closing tags
   cleaned = cleaned.replace(/<\/?think>/gim, "");
-  // Clean up extra whitespace
   return cleaned.trim();
 };
 
@@ -24,21 +34,166 @@ const hasIncompleteThinkTag = (text: string): boolean => {
   return openCount > closeCount;
 };
 
-export const useOllamaChat = (ollamaUrl: string, systemPrompt: string) => {
+/**
+ * Streams a chat response from the local Ollama instance.
+ * Ollama uses its own JSON-lines format: each line is a JSON object with { message: { content } }.
+ */
+async function streamOllama(
+  config: ChatConfig,
+  conversationMessages: Message[],
+  onToken: (fullText: string) => void
+): Promise<void> {
+  const res = await fetch(`${config.ollamaUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: config.model,
+      stream: true,
+      messages: conversationMessages,
+      options: { num_ctx: 4096 },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Ollama error: ${res.statusText}`);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body from Ollama");
+
+  const decoder = new TextDecoder("utf-8");
+  let fullText = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value, { stream: true });
+    const lines = chunk.split("\n").filter((line) => line.trim());
+
+    for (const line of lines) {
+      try {
+        const json = JSON.parse(line);
+        if (json.message?.content) {
+          fullText += json.message.content;
+          onToken(fullText);
+        }
+      } catch {
+        // Skip invalid JSON lines
+      }
+    }
+  }
+}
+
+/**
+ * Streams a chat response from the Groq cloud API.
+ * Groq uses OpenAI-compatible SSE format: `data: { choices: [{ delta: { content } }] }`
+ */
+async function streamGroq(
+  config: ChatConfig,
+  conversationMessages: Message[],
+  onToken: (fullText: string) => void
+): Promise<void> {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.groqApiKey}`,
+    },
+    body: JSON.stringify({
+      model: config.model,
+      messages: conversationMessages,
+      stream: true,
+      temperature: 0.7,
+      max_completion_tokens: 2048,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    if (res.status === 401) {
+      throw new Error("Invalid Groq API key. Please check your key in settings.");
+    }
+    if (res.status === 429) {
+      throw new Error("Groq rate limit exceeded. Please wait a moment and try again.");
+    }
+    throw new Error(`Groq API error (${res.status}): ${errorBody}`);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body from Groq");
+
+  const decoder = new TextDecoder("utf-8");
+  let fullText = "";
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith("data: ")) continue;
+
+      const data = trimmed.slice(6); // Remove "data: " prefix
+      if (data === "[DONE]") break;
+
+      try {
+        const json = JSON.parse(data);
+        const delta = json.choices?.[0]?.delta?.content;
+        if (delta) {
+          fullText += delta;
+          onToken(fullText);
+        }
+      } catch {
+        // Skip invalid JSON
+      }
+    }
+  }
+}
+
+export const useChat = (config: ChatConfig, systemPrompt: string) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Load messages from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as Message[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+    } catch {
+      // Ignore corrupt localStorage data
+    }
+  }, []);
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    }
+  }, [messages]);
+
   const sendMessage = useCallback(
     async (userMsg: string) => {
-      if (!ollamaUrl) {
-        setError("Please set the Ollama endpoint URL first");
+      if (config.provider === "ollama" && !config.ollamaUrl) {
+        setError("Please set the Ollama endpoint URL in settings.");
         return;
       }
-
-      if (!userMsg.trim()) {
+      if (config.provider === "groq" && !config.groqApiKey) {
+        setError("Please set your Groq API key in settings.");
         return;
       }
+      if (!userMsg.trim()) return;
 
       setError(null);
       setIsLoading(true);
@@ -47,87 +202,43 @@ export const useOllamaChat = (ollamaUrl: string, systemPrompt: string) => {
       setMessages((prev) => [...prev, newMsg]);
 
       try {
-        const conversationMessages = [
+        const conversationMessages: Message[] = [
           { role: "system", content: systemPrompt },
           ...messages,
           newMsg,
         ];
 
-        const res = await fetch(`${ollamaUrl}/api/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "qwen3:8b",
-            stream: true,
-            messages: conversationMessages,
-            options: {
-              // Disable thinking/reasoning mode
-              num_ctx: 4096,
-            },
-          }),
-        });
-
-        if (!res.ok) {
-          throw new Error(`Failed to connect to Ollama: ${res.statusText}`);
-        }
-
-        const reader = res.body?.getReader();
-        if (!reader) {
-          throw new Error("No response body");
-        }
-
-        const decoder = new TextDecoder("utf-8");
-        let fullText = "";
         let assistantMessageAdded = false;
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        const handleToken = (fullText: string) => {
+          // Don't display anything while inside thinking tags
+          if (hasIncompleteThinkTag(fullText)) return;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n").filter((line) => line.trim());
+          const cleanedText = removeThinkingContext(fullText);
+          if (!cleanedText) return;
 
-          for (const line of lines) {
-            try {
-              const json = JSON.parse(line);
-              if (json.message?.content) {
-                fullText += json.message.content;
-
-                // Don't display anything if we're still inside thinking tags
-                if (hasIncompleteThinkTag(fullText)) {
-                  continue;
-                }
-
-                // Remove thinking context before displaying
-                const cleanedText = removeThinkingContext(fullText);
-
-                // Only display if there's actual content after cleaning
-                if (!cleanedText) {
-                  continue;
-                }
-
-                if (!assistantMessageAdded) {
-                  setMessages((prev) => [
-                    ...prev,
-                    { role: "assistant", content: cleanedText },
-                  ]);
-                  assistantMessageAdded = true;
-                } else {
-                  setMessages((prev) => {
-                    const updated = [...prev];
-                    updated[updated.length - 1] = {
-                      role: "assistant",
-                      content: cleanedText,
-                    };
-                    return updated;
-                  });
-                }
-              }
-            } catch (e) {
-              // Skip invalid JSON lines
-              console.warn("Failed to parse JSON line:", line);
-            }
+          if (!assistantMessageAdded) {
+            setMessages((prev) => [
+              ...prev,
+              { role: "assistant", content: cleanedText },
+            ]);
+            assistantMessageAdded = true;
+          } else {
+            setMessages((prev) => {
+              const updated = [...prev];
+              updated[updated.length - 1] = {
+                role: "assistant",
+                content: cleanedText,
+              };
+              return updated;
+            });
           }
+        };
+
+        if (config.provider === "ollama") {
+          await streamOllama(config, conversationMessages, handleToken);
+        } else {
+          await streamGroq(config, conversationMessages, handleToken);
         }
 
         setIsLoading(false);
@@ -140,17 +251,18 @@ export const useOllamaChat = (ollamaUrl: string, systemPrompt: string) => {
           ...prev,
           {
             role: "assistant",
-            content: `Error: ${errorMessage}. Please check your Ollama endpoint and make sure Ollama is running.`,
+            content: `Error: ${errorMessage}`,
           },
         ]);
       }
     },
-    [ollamaUrl, systemPrompt, messages]
+    [config, systemPrompt, messages]
   );
 
   const clearMessages = useCallback(() => {
     setMessages([]);
     setError(null);
+    localStorage.removeItem(STORAGE_KEY);
   }, []);
 
   return { messages, sendMessage, isLoading, error, clearMessages };

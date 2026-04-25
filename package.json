@@ -24,6 +24,7 @@
     "postgres": "^3.4.7",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "recharts": "^3.8.1",
     "redis": "^5.9.0"
   },
   "devDependencies": {
@@ -35,6 +36,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "baseline-browser-mapping": "^2.10.21",
     "drizzle-kit": "^0.31.6",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",

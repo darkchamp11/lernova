@@ -2,7 +2,22 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts';
 import type { Content } from '@/src/db/schema';
+import RealTimeQuiz from '@/app/components/RealTimeQuiz';
 
 interface SessionUser {
   userId: number;
@@ -10,25 +25,77 @@ interface SessionUser {
   name: string;
 }
 
+interface UserProfile {
+  id: number;
+  name: string;
+  email: string;
+  username: string;
+  knowledgeVec: number[] | null;
+}
+
+interface ProgressEntry {
+  id: number;
+  score: number | null;
+  timeSpent: number | null;
+  completed: number | null;
+  createdAt: string;
+  contentTitle: string;
+  contentTopic: string;
+}
+
+interface RecommendationData {
+  recommendations: Content[];
+  targetDifficulty: string;
+  averageScore: number;
+  source: string;
+  goal: string | null;
+}
+
+// Fixed topic labels mapped to knowledge vector dimensions
+const TOPIC_LABELS = ['Programming', 'Web Dev', 'CS Theory', 'AI & ML', 'DevOps'];
+
 export default function DashboardPage() {
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [recentProgress, setRecentProgress] = useState<ProgressEntry[]>([]);
   const [recommendations, setRecommendations] = useState<Content[]>([]);
+  const [targetDifficulty, setTargetDifficulty] = useState<string>('beginner');
+  const [averageScore, setAverageScore] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<string>('');
+  const [goal, setGoal] = useState<string | null>(null);
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState('');
+  const [goalError, setGoalError] = useState('');
+  const [goalSaving, setGoalSaving] = useState(false);
   const router = useRouter();
 
   const fetchRecommendations = useCallback(async (userId: number) => {
     try {
       const response = await fetch(`/api/recommend?userId=${userId}`);
       if (response.ok) {
-        const data = await response.json();
+        const data: RecommendationData = await response.json();
         setRecommendations(data.recommendations);
+        setTargetDifficulty(data.targetDifficulty);
+        setAverageScore(data.averageScore);
         setSource(data.source);
+        if (data.goal !== undefined) setGoal(data.goal);
       }
     } catch (error) {
       console.error('Error fetching recommendations:', error);
-    } finally {
-      setLoading(false);
+    }
+  }, []);
+
+  const fetchProfile = useCallback(async (userId: number) => {
+    try {
+      const response = await fetch(`/api/user/profile?userId=${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setProfile(data.user);
+        setRecentProgress(data.recentProgress);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
     }
   }, []);
 
@@ -39,56 +106,32 @@ export default function DashboardPage() {
         const data = await response.json();
         if (data.authenticated) {
           setUser(data.user);
-          await fetchRecommendations(data.user.userId);
+          await Promise.all([
+            fetchRecommendations(data.user.userId),
+            fetchProfile(data.user.userId),
+          ]);
         } else {
-          // No authenticated user, redirect to auth page
           router.push('/auth');
         }
       } else {
-        // No session exists (401), redirect to auth page
         router.push('/auth');
       }
     } catch (error) {
       console.error('Error checking session:', error);
       router.push('/auth');
+    } finally {
+      setLoading(false);
     }
-  }, [fetchRecommendations, router]);
+  }, [fetchRecommendations, fetchProfile, router]);
 
   useEffect(() => {
     checkSession();
   }, [checkSession]);
 
-  const handleUpdateProgress = async (contentId: number) => {
-    if (!user) return;
-
-    try {
-      // Find the course being started
-      const course = recommendations.find(r => r.id === contentId);
-      
-      const response = await fetch('/api/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.userId,
-          contentId,
-          score: Math.floor(Math.random() * 100),
-          timeSpent: Math.floor(Math.random() * 60),
-          completed: Math.random() > 0.5 ? 1 : 0,
-        }),
-      });
-
-      if (response.ok) {
-        // Show a more user-friendly message
-        console.log(`📚 Progress tracked for: ${course?.title}`);
-        console.log('🔄 Fetching updated recommendations based on your learning...');
-        
-        // Refresh recommendations (cache will be invalidated, new recommendations fetched)
-        await fetchRecommendations(user.userId);
-      }
-    } catch (error) {
-      console.error('Error updating progress:', error);
-    }
+  const handleStartLearning = (contentId: number) => {
+    router.push(`/course/${contentId}/quiz`);
   };
+
 
   const handleLogout = async () => {
     try {
@@ -99,29 +142,52 @@ export default function DashboardPage() {
     }
   };
 
+  // Prepare radar chart data from knowledgeVec
+  const radarData = profile?.knowledgeVec
+    ? TOPIC_LABELS.map((label, i) => ({
+        subject: label,
+        value: Math.round((profile.knowledgeVec?.[i] ?? 0) * 100),
+        fullMark: 100,
+      }))
+    : [];
+
+  // Prepare bar chart data from recent progress
+  const barData = recentProgress.map((p) => ({
+    name: p.contentTitle.length > 18 ? `${p.contentTitle.slice(0, 18)}…` : p.contentTitle,
+    score: p.score ?? 0,
+  }));
+
+  // Determine difficulty badge styling
+  const difficultyBadge = {
+    beginner: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    intermediate: 'bg-amber-100 text-amber-700 border-amber-200',
+    advanced: 'bg-red-100 text-red-700 border-red-200',
+  }[targetDifficulty] ?? 'bg-gray-100 text-gray-700 border-gray-200';
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-indigo-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-500 font-medium">Loading your dashboard...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50">
       <div className="container mx-auto px-4 py-8">
+        {/* Header */}
         <header className="mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-4xl font-bold text-gray-800 mb-2">Personalized Learning Platform</h1>
+              <h1 className="text-4xl font-bold text-gray-800 mb-2">
+                Personalized Learning Platform
+              </h1>
               {user && (
                 <p className="text-lg text-gray-600">
                   Welcome back, <span className="font-semibold">{user.name}</span>!
-                </p>
-              )}
-              {source && (
-                <p className="text-sm text-gray-500 mt-2">
-                  Recommendations loaded from: <span className="font-mono">{source}</span>
                 </p>
               )}
             </div>
@@ -131,12 +197,7 @@ export default function DashboardPage() {
                 onClick={() => router.push('/chat')}
                 className="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors duration-200 flex items-center gap-2"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -157,6 +218,198 @@ export default function DashboardPage() {
           </div>
         </header>
 
+        {/* Profile & Charts Section */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+          {/* Learner Profile Card */}
+          <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <span>👤</span> Learner Profile
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm text-gray-500">Username</p>
+                <p className="font-semibold text-gray-800">{profile?.username ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Email</p>
+                <p className="font-medium text-gray-700">{profile?.email ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Target Difficulty</p>
+                <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold border ${difficultyBadge}`}>
+                  {targetDifficulty.charAt(0).toUpperCase() + targetDifficulty.slice(1)}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Average Score</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
+                      style={{ width: `${averageScore}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-bold text-gray-700">{averageScore}%</span>
+                </div>
+              </div>
+              {source && (
+                <div>
+                  <p className="text-sm text-gray-500">Data Source</p>
+                  <span className="inline-block bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs font-mono">
+                    {source}
+                  </span>
+                </div>
+              )}
+
+              {/* Learning Goal */}
+              <div className="pt-3 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm text-gray-500">🎯 Learning Goal</p>
+                  {goal && !isEditingGoal && (
+                    <button
+                      type="button"
+                      onClick={() => { setGoalInput(goal); setIsEditingGoal(true); setGoalError(''); }}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+
+                {isEditingGoal ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={goalInput}
+                      onChange={(e) => setGoalInput(e.target.value)}
+                      rows={2}
+                      maxLength={500}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 outline-none text-gray-700 text-sm resize-none"
+                      placeholder="e.g., I want to learn full-stack web development"
+                      disabled={goalSaving}
+                    />
+                    {goalError && (
+                      <p className="text-xs text-red-600">{goalError}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={goalSaving || goalInput.trim().length < 5}
+                        onClick={async () => {
+                          if (!user) return;
+                          setGoalSaving(true);
+                          setGoalError('');
+                          try {
+                            const res = await fetch('/api/user/goal', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ userId: user.userId, goal: goalInput.trim() }),
+                            });
+                            const data = await res.json();
+                            if (!data.valid) {
+                              setGoalError(data.message || 'Please provide a valid learning goal.');
+                            } else {
+                              setGoal(goalInput.trim());
+                              setIsEditingGoal(false);
+                              await fetchRecommendations(user.userId);
+                            }
+                          } catch {
+                            setGoalError('Failed to save goal.');
+                          } finally {
+                            setGoalSaving(false);
+                          }
+                        }}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white text-xs font-semibold py-1.5 px-3 rounded-md transition-colors"
+                      >
+                        {goalSaving ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setIsEditingGoal(false); setGoalError(''); }}
+                        disabled={goalSaving}
+                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold py-1.5 px-3 rounded-md transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : goal ? (
+                  <p className="text-sm font-medium text-gray-800 leading-relaxed">{goal}</p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setGoalInput(''); setIsEditingGoal(true); setGoalError(''); }}
+                    className="w-full text-left bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm px-3 py-2 rounded-lg transition-colors"
+                  >
+                    + Set a learning goal to get personalized recommendations
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Knowledge Radar Chart */}
+          <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <span>🧠</span> Knowledge Profile
+            </h2>
+            {radarData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <RadarChart data={radarData} outerRadius="70%">
+                  <PolarGrid stroke="#e5e7eb" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: '#6b7280' }} />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10 }} />
+                  <Radar
+                    name="Knowledge"
+                    dataKey="value"
+                    stroke="#6366f1"
+                    fill="#6366f1"
+                    fillOpacity={0.25}
+                    strokeWidth={2}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-gray-400">
+                No knowledge data available
+              </div>
+            )}
+          </div>
+
+          {/* Progress Bar Chart */}
+          <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <span>📊</span> Recent Scores
+            </h2>
+            {barData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10 }} />
+                  <Tooltip
+                    formatter={(value) => [`${value}%`, 'Score']}
+                    contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                  />
+                  <Bar dataKey="score" fill="#8b5cf6" radius={[0, 6, 6, 0]} barSize={20} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-gray-400">
+                No progress data yet — start learning!
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Real-Time Knowledge Check */}
+        <section className="mb-10">
+          <RealTimeQuiz
+            topic={recommendations[0]?.topic ?? 'Programming'}
+            difficulty={targetDifficulty}
+          />
+        </section>
+
+        {/* Recommended Courses */}
         <section>
           <h2 className="text-2xl font-semibold text-gray-800 mb-6">Recommended Courses</h2>
 
@@ -172,13 +425,15 @@ export default function DashboardPage() {
               {recommendations.map((course) => (
                 <div
                   key={course.id}
-                  className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden"
+                  className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-100"
                 >
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-4">
-                      <h3 className="text-xl font-semibold text-gray-800 flex-1">{course.title}</h3>
+                      <h3 className="text-xl font-semibold text-gray-800 flex-1">
+                        {course.title}
+                      </h3>
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ml-2 whitespace-nowrap ${
                           course.difficulty === 'beginner'
                             ? 'bg-green-100 text-green-800'
                             : course.difficulty === 'intermediate'
@@ -215,13 +470,22 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateProgress(course.id)}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200"
-                    >
-                      Start Learning
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStartLearning(course.id)}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200 text-sm"
+                      >
+                        Start Learning
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/course/${course.id}/quiz`)}
+                        className="flex-1 bg-violet-100 hover:bg-violet-200 text-violet-700 font-semibold py-2 px-4 rounded-md transition-colors duration-200 text-sm"
+                      >
+                        Take Quiz
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

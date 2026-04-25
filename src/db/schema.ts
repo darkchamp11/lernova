@@ -9,6 +9,7 @@ export const users = pgTable('users', {
   name: varchar('name', { length: 255 }).notNull(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   knowledgeVec: json('knowledge_vec').$type<number[]>().default([]),
+  goal: text('goal'), // User's learning goal, set during onboarding
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
