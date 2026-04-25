@@ -13,6 +13,7 @@ interface GenerateQuizRequest {
   topic: string;
   difficulty: string;
   count?: number;
+  todos?: string[]; // Optional: study tasks to base questions on
 }
 
 interface GenerateQuizResponse {
@@ -22,7 +23,7 @@ interface GenerateQuizResponse {
 export async function POST(request: Request) {
   try {
     const body: GenerateQuizRequest = await request.json();
-    const { topic, difficulty, count = 4 } = body;
+    const { topic, difficulty, count = 4, todos } = body;
 
     if (!topic || !difficulty) {
       return NextResponse.json(
@@ -33,7 +34,12 @@ export async function POST(request: Request) {
 
     const mcqCount = Math.max(1, count - 1);
 
-    const prompt = `Generate a quiz about "${topic}" at "${difficulty}" difficulty level.
+    // Build the study tasks context if provided
+    const todosContext = todos && todos.length > 0
+      ? `\n\nThe student has been studying the following specific tasks. Questions MUST be based on these topics:\n${todos.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
+      : '';
+
+    const prompt = `Generate a quiz about "${topic}" at "${difficulty}" difficulty level.${todosContext}
 
 You MUST respond with valid JSON only using this exact structure:
 {
@@ -57,7 +63,7 @@ Requirements:
 - Generate exactly ${mcqCount} multiple-choice questions (type: "mcq") followed by exactly 1 written-answer question (type: "written")
 - Each MCQ must have exactly 4 options with one correct answer
 - The correctAnswer must exactly match one of the options
-- MCQ questions should test understanding, not just recall
+- MCQ questions should test understanding, not just recall${todos && todos.length > 0 ? '\n- Questions MUST directly test the student on the study tasks listed above' : ''}
 - The written question should require a thoughtful, multi-sentence explanation
 - Written questions should NOT have "options" or "correctAnswer" fields
 - Each question must be UNIQUE — no duplicate or similar questions

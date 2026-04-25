@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 import type { Content } from '@/src/db/schema';
 import RealTimeQuiz from '@/app/components/RealTimeQuiz';
+import ActiveCourses from '@/app/components/ActiveCourses';
 
 interface SessionUser {
   userId: number;
@@ -68,7 +69,28 @@ export default function DashboardPage() {
   const [goalInput, setGoalInput] = useState('');
   const [goalError, setGoalError] = useState('');
   const [goalSaving, setGoalSaving] = useState(false);
+
+  // Enrollment state
+  const [activeEnrollmentCount, setActiveEnrollmentCount] = useState(0);
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<number>>(new Set());
+  const [registering, setRegistering] = useState<Record<number, boolean>>({});
+  const [enrollmentKey, setEnrollmentKey] = useState(0); // triggers ActiveCourses refresh
+
   const router = useRouter();
+
+  const fetchEnrollmentState = useCallback(async (uid: number) => {
+    try {
+      const res = await fetch(`/api/enrollments?userId=${uid}`);
+      if (res.ok) {
+        const data = await res.json();
+        const active = data.enrollments || [];
+        setActiveEnrollmentCount(active.length);
+        setEnrolledCourseIds(new Set(active.map((e: { course: { id: number } }) => e.course.id)));
+      }
+    } catch {
+      // silent
+    }
+  }, []);
 
   const fetchRecommendations = useCallback(async (userId: number) => {
     try {
@@ -109,6 +131,7 @@ export default function DashboardPage() {
           await Promise.all([
             fetchRecommendations(data.user.userId),
             fetchProfile(data.user.userId),
+            fetchEnrollmentState(data.user.userId),
           ]);
         } else {
           router.push('/auth');
@@ -122,16 +145,50 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [fetchRecommendations, fetchProfile, router]);
+  }, [fetchRecommendations, fetchProfile, fetchEnrollmentState, router]);
 
   useEffect(() => {
     checkSession();
   }, [checkSession]);
 
-  const handleStartLearning = (contentId: number) => {
-    router.push(`/course/${contentId}/quiz`);
+  const handleRegisterCourse = async (contentId: number) => {
+    if (!user) return;
+    setRegistering((prev) => ({ ...prev, [contentId]: true }));
+
+    try {
+      const res = await fetch('/api/enrollments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.userId, contentId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || 'Failed to register');
+        return;
+      }
+
+      // Refresh enrollment state and ActiveCourses component
+      await fetchEnrollmentState(user.userId);
+      setEnrollmentKey((k) => k + 1);
+    } catch (err) {
+      console.error('Error registering:', err);
+      alert('Failed to register for course');
+    } finally {
+      setRegistering((prev) => ({ ...prev, [contentId]: false }));
+    }
   };
 
+  const handleEnrollmentChange = async () => {
+    if (!user) return;
+    await Promise.all([
+      fetchEnrollmentState(user.userId),
+      fetchProfile(user.userId),
+      fetchRecommendations(user.userId),
+    ]);
+    setEnrollmentKey((k) => k + 1);
+  };
 
   const handleLogout = async () => {
     try {
@@ -401,6 +458,23 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        {/* Active Courses Section */}
+        <section className="mb-10">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+            📖 My Active Courses
+            <span className="text-sm font-normal text-gray-500">
+              ({activeEnrollmentCount}/2 slots used)
+            </span>
+          </h2>
+          {user && (
+            <ActiveCourses
+              key={enrollmentKey}
+              userId={user.userId}
+              onEnrollmentChange={handleEnrollmentChange}
+            />
+          )}
+        </section>
+
         {/* Real-Time Knowledge Check */}
         <section className="mb-10">
           <RealTimeQuiz
@@ -422,73 +496,84 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {recommendations.map((course) => (
-                <div
-                  key={course.id}
-                  className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-100"
-                >
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <h3 className="text-xl font-semibold text-gray-800 flex-1">
-                        {course.title}
-                      </h3>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ml-2 whitespace-nowrap ${
-                          course.difficulty === 'beginner'
-                            ? 'bg-green-100 text-green-800'
-                            : course.difficulty === 'intermediate'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-red-100 text-red-800'
+              {recommendations.map((course) => {
+                const isEnrolled = enrolledCourseIds.has(course.id);
+                const atCapacity = activeEnrollmentCount >= 2;
+                const isRegistering = registering[course.id];
+                const canRegister = !isEnrolled && !atCapacity && !isRegistering;
+
+                return (
+                  <div
+                    key={course.id}
+                    className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-100"
+                  >
+                    <div className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <h3 className="text-xl font-semibold text-gray-800 flex-1">
+                          {course.title}
+                        </h3>
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ml-2 whitespace-nowrap ${
+                            course.difficulty === 'beginner'
+                              ? 'bg-green-100 text-green-800'
+                              : course.difficulty === 'intermediate'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {course.difficulty}
+                        </span>
+                      </div>
+
+                      <div className="mb-4">
+                        <span className="inline-block bg-indigo-100 text-indigo-800 px-3 py-1 rounded-md text-sm font-medium">
+                          {course.topic}
+                        </span>
+                      </div>
+
+                      {course.description && (
+                        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                          {course.description}
+                        </p>
+                      )}
+
+                      {course.keywords && course.keywords.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {course.keywords.slice(0, 3).map((keyword) => (
+                            <span
+                              key={keyword}
+                              className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded"
+                            >
+                              {keyword}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleRegisterCourse(course.id)}
+                        disabled={!canRegister}
+                        className={`w-full font-semibold py-2 px-4 rounded-md transition-colors duration-200 text-sm ${
+                          isEnrolled
+                            ? 'bg-emerald-100 text-emerald-700 cursor-default'
+                            : canRegister
+                              ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                         }`}
                       >
-                        {course.difficulty}
-                      </span>
-                    </div>
-
-                    <div className="mb-4">
-                      <span className="inline-block bg-indigo-100 text-indigo-800 px-3 py-1 rounded-md text-sm font-medium">
-                        {course.topic}
-                      </span>
-                    </div>
-
-                    {course.description && (
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                        {course.description}
-                      </p>
-                    )}
-
-                    {course.keywords && course.keywords.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {course.keywords.slice(0, 3).map((keyword) => (
-                          <span
-                            key={keyword}
-                            className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded"
-                          >
-                            {keyword}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleStartLearning(course.id)}
-                        className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-200 text-sm"
-                      >
-                        Start Learning
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => router.push(`/course/${course.id}/quiz`)}
-                        className="flex-1 bg-violet-100 hover:bg-violet-200 text-violet-700 font-semibold py-2 px-4 rounded-md transition-colors duration-200 text-sm"
-                      >
-                        Take Quiz
+                        {isRegistering
+                          ? 'Registering...'
+                          : isEnrolled
+                            ? '✓ Enrolled'
+                            : atCapacity
+                              ? 'Slots Full (2/2)'
+                              : 'Register Course'}
                       </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

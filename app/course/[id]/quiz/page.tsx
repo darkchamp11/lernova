@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
 interface MCQQuestion {
   question: string;
@@ -44,13 +44,32 @@ interface CourseInfo {
   difficulty: string;
 }
 
+interface TodoItem {
+  id: number;
+  title: string;
+  completed: number;
+}
+
+interface EnrollmentData {
+  enrollment: { id: number; status: string; quizScore: number | null };
+  course: CourseInfo;
+  todos: TodoItem[];
+}
+
+const PASS_THRESHOLD = 75;
+
 export default function QuizPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const courseId = Number(params.id);
+  const enrollmentId = searchParams.get('enrollmentId')
+    ? Number(searchParams.get('enrollmentId'))
+    : null;
 
   // Course info
   const [course, setCourse] = useState<CourseInfo | null>(null);
+  const [todoTitles, setTodoTitles] = useState<string[]>([]);
 
   // Quiz state
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -66,6 +85,7 @@ export default function QuizPage() {
   // Feedback state
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [passed, setPassed] = useState<boolean | null>(null);
 
   // Session
   const [userId, setUserId] = useState<number | null>(null);
@@ -88,7 +108,7 @@ export default function QuizPage() {
     fetchSession();
   }, []);
 
-  // Fetch course details, then generate quiz
+  // Fetch course details, enrollment todos, then generate quiz
   useEffect(() => {
     const loadQuiz = async () => {
       setIsLoadingQuiz(true);
@@ -101,7 +121,27 @@ export default function QuizPage() {
         const courseData = await courseRes.json();
         setCourse(courseData.course);
 
-        // 2. Generate quiz questions
+        // 2. If enrolled, fetch todo titles for targeted quiz
+        let todos: string[] = [];
+        if (enrollmentId && userId) {
+          try {
+            const enrollRes = await fetch(`/api/enrollments?userId=${userId}`);
+            if (enrollRes.ok) {
+              const enrollData = await enrollRes.json();
+              const myEnrollment = (enrollData.enrollments || []).find(
+                (e: EnrollmentData) => e.enrollment.id === enrollmentId,
+              );
+              if (myEnrollment) {
+                todos = myEnrollment.todos.map((t: TodoItem) => t.title);
+                setTodoTitles(todos);
+              }
+            }
+          } catch {
+            // Non-critical — quiz will be generated without todos
+          }
+        }
+
+        // 3. Generate quiz questions
         const quizRes = await fetch('/api/generate-quiz', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -109,6 +149,7 @@ export default function QuizPage() {
             topic: courseData.course.topic,
             difficulty: courseData.course.difficulty,
             count: 4,
+            ...(todos.length > 0 ? { todos } : {}),
           }),
         });
 
@@ -126,8 +167,11 @@ export default function QuizPage() {
       }
     };
 
-    loadQuiz();
-  }, [courseId]);
+    // Wait for userId to be set before loading (needed for enrollment lookup)
+    if (userId !== null || !enrollmentId) {
+      loadQuiz();
+    }
+  }, [courseId, enrollmentId, userId]);
 
   const mcqQuestions = questions.filter((q): q is MCQQuestion => q.type === 'mcq');
   const writtenQuestion = questions.find((q): q is WrittenQuestion => q.type === 'written');
@@ -184,29 +228,17 @@ export default function QuizPage() {
         }),
       });
 
+      let finalScore: number;
+
       if (analyzeRes.ok) {
         const analysisData: AnalysisResult = await analyzeRes.json();
         setAnalysis(analysisData);
-
-        // Save progress with AI-computed score
-        if (userId) {
-          await fetch('/api/progress', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId,
-              contentId: courseId,
-              score: analysisData.overallScore,
-              timeSpent: 10,
-              completed: 1,
-            }),
-          });
-        }
+        finalScore = analysisData.overallScore;
       } else {
-        // Fallback: save with MCQ-only score
-        const fallbackScore = Math.round((mcqCorrect / mcqQuestions.length) * 100);
+        // Fallback: MCQ-only score
+        finalScore = Math.round((mcqCorrect / mcqQuestions.length) * 100);
         setAnalysis({
-          overallScore: fallbackScore,
+          overallScore: finalScore,
           mcqFeedback: mcqQuestions.map((q, i) => ({
             questionIndex: i,
             correct: answers[i] === q.correctAnswer,
@@ -218,25 +250,44 @@ export default function QuizPage() {
             suggestions: [],
           },
         });
+      }
 
-        if (userId) {
-          await fetch('/api/progress', {
+      // Determine pass/fail
+      const didPass = finalScore >= PASS_THRESHOLD;
+      setPassed(didPass);
+
+      // Save progress — completed only if passed
+      if (userId) {
+        await fetch('/api/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            contentId: courseId,
+            score: finalScore,
+            timeSpent: 10,
+            completed: didPass ? 1 : 0,
+          }),
+        });
+      }
+
+      // Update enrollment status via mastery gate
+      if (enrollmentId) {
+        try {
+          await fetch('/api/enrollments/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId,
-              contentId: courseId,
-              score: fallbackScore,
-              timeSpent: 10,
-              completed: 1,
-            }),
+            body: JSON.stringify({ enrollmentId, score: finalScore }),
           });
+        } catch (err) {
+          console.error('Error updating enrollment:', err);
         }
       }
     } catch (err) {
       console.error('Analysis error:', err);
-      // Fallback
       const fallbackScore = Math.round((mcqCorrect / mcqQuestions.length) * 100);
+      const didPass = fallbackScore >= PASS_THRESHOLD;
+      setPassed(didPass);
       setAnalysis({
         overallScore: fallbackScore,
         mcqFeedback: mcqQuestions.map((q, i) => ({
@@ -262,10 +313,10 @@ export default function QuizPage() {
     setWrittenAnswer('');
     setSubmitted(false);
     setAnalysis(null);
+    setPassed(null);
     setIsLoadingQuiz(true);
     setQuizError(null);
 
-    // Re-generate the quiz
     const regenerate = async () => {
       try {
         const quizRes = await fetch('/api/generate-quiz', {
@@ -275,6 +326,7 @@ export default function QuizPage() {
             topic: course?.topic || 'Programming',
             difficulty: course?.difficulty || 'intermediate',
             count: 4,
+            ...(todoTitles.length > 0 ? { todos: todoTitles } : {}),
           }),
         });
         if (!quizRes.ok) throw new Error('Failed to regenerate quiz');
@@ -296,7 +348,11 @@ export default function QuizPage() {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-6" />
           <h2 className="text-xl font-semibold text-gray-700 mb-2">Generating Your Quiz...</h2>
-          <p className="text-gray-500">AI is creating unique questions tailored to your level</p>
+          <p className="text-gray-500">
+            {todoTitles.length > 0
+              ? 'Creating questions based on your study plan'
+              : 'AI is creating unique questions tailored to your level'}
+          </p>
         </div>
       </div>
     );
@@ -352,24 +408,31 @@ export default function QuizPage() {
               ? 'Review your results and AI feedback below'
               : `Answer all ${questions.length} questions, then submit to get AI-powered feedback.`}
           </p>
-          {course && (
-            <div className="flex items-center gap-2 mt-3">
-              <span className="inline-block bg-indigo-100 text-indigo-800 px-3 py-1 rounded-md text-sm font-medium">
-                {course.topic}
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            {course && (
+              <>
+                <span className="inline-block bg-indigo-100 text-indigo-800 px-3 py-1 rounded-md text-sm font-medium">
+                  {course.topic}
+                </span>
+                <span
+                  className={`inline-block px-3 py-1 rounded-md text-sm font-medium ${
+                    course.difficulty === 'beginner'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : course.difficulty === 'intermediate'
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-red-100 text-red-800'
+                  }`}
+                >
+                  {course.difficulty}
+                </span>
+              </>
+            )}
+            {enrollmentId && (
+              <span className="inline-block bg-purple-100 text-purple-800 px-3 py-1 rounded-md text-sm font-medium">
+                📋 Enrollment Quiz • Pass ≥{PASS_THRESHOLD}%
               </span>
-              <span
-                className={`inline-block px-3 py-1 rounded-md text-sm font-medium ${
-                  course.difficulty === 'beginner'
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : course.difficulty === 'intermediate'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-red-100 text-red-800'
-                }`}
-              >
-                {course.difficulty}
-              </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* MCQ Questions */}
@@ -554,12 +617,14 @@ export default function QuizPage() {
           ) : analysis ? (
             <div className="space-y-6">
               {/* Overall score card */}
-              <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100 inline-block">
+              <div className={`bg-white rounded-xl shadow-lg p-8 border-2 inline-block ${
+                passed === true ? 'border-emerald-200' : passed === false ? 'border-red-200' : 'border-gray-100'
+              }`}>
                 <p className="text-sm text-gray-500 uppercase tracking-wider mb-1">Overall Score</p>
                 <p className="text-5xl font-bold mb-2">
                   <span
                     className={
-                      analysis.overallScore >= 80
+                      analysis.overallScore >= PASS_THRESHOLD
                         ? 'text-emerald-600'
                         : analysis.overallScore >= 50
                           ? 'text-amber-600'
@@ -569,24 +634,42 @@ export default function QuizPage() {
                     {analysis.overallScore}%
                   </span>
                 </p>
-                <p className="text-gray-500 text-sm">
-                  {analysis.overallScore >= 80
-                    ? '🎉 Excellent work!'
-                    : analysis.overallScore >= 50
-                      ? '👍 Good effort — keep practicing!'
-                      : '📚 Review the material and try again.'}
-                </p>
+
+                {/* Enrollment-specific pass/fail message */}
+                {enrollmentId ? (
+                  <div className={`mt-3 px-4 py-2 rounded-lg ${
+                    passed
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'bg-red-50 text-red-700'
+                  }`}>
+                    <p className="font-semibold text-sm">
+                      {passed
+                        ? '🎉 Congratulations! You passed! Course slot is now free.'
+                        : `❌ You need ≥${PASS_THRESHOLD}% to pass. Review your study plan and retry.`}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">
+                    {analysis.overallScore >= 80
+                      ? '🎉 Excellent work!'
+                      : analysis.overallScore >= 50
+                        ? '👍 Good effort — keep practicing!'
+                        : '📚 Review the material and try again.'}
+                  </p>
+                )}
               </div>
 
               {/* Action buttons */}
               <div className="flex justify-center gap-4">
-                <button
-                  type="button"
-                  onClick={handleRetry}
-                  className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold py-3 px-8 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
-                >
-                  🔄 Retake Quiz
-                </button>
+                {(!enrollmentId || !passed) && (
+                  <button
+                    type="button"
+                    onClick={handleRetry}
+                    className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold py-3 px-8 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
+                  >
+                    🔄 Retake Quiz
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => router.push('/dashboard')}
