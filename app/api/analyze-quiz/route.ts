@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     if (!mcqAnswers || !writtenAnswer) {
       return NextResponse.json(
         { error: 'mcqAnswers and writtenAnswer are required' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     const mcqSection = mcqAnswers
       .map(
         (a, i) =>
-          `Q${i + 1}: ${a.question}\nOptions: ${a.options.join(' | ')}\nCorrect: ${a.correctAnswer}\nStudent chose: ${a.selectedAnswer}`,
+          `Q${i + 1}: ${a.question}\nOptions: ${a.options.join(' | ')}\nCorrect: ${a.correctAnswer}\nStudent chose: ${a.selectedAnswer}`
       )
       .join('\n\n');
 
@@ -108,7 +108,7 @@ Be encouraging but honest. Provide specific, educational feedback.`;
     ) {
       return NextResponse.json(
         { error: 'AI returned an unexpected response format. Please try again.' },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -117,7 +117,7 @@ Be encouraging but honest. Provide specific, educational feedback.`;
     console.error('Error analyzing quiz:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to analyze quiz' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

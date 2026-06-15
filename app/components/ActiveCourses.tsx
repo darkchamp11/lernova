@@ -70,9 +70,9 @@ export default function ActiveCourses({ userId, onEnrollmentChange }: ActiveCour
       prev.map((e) => ({
         ...e,
         todos: e.todos.map((t) =>
-          t.id === todoId ? { ...t, completed: currentCompleted ? 0 : 1 } : t,
+          t.id === todoId ? { ...t, completed: currentCompleted ? 0 : 1 } : t
         ),
-      })),
+      }))
     );
 
     try {
@@ -88,9 +88,9 @@ export default function ActiveCourses({ userId, onEnrollmentChange }: ActiveCour
           prev.map((e) => ({
             ...e,
             todos: e.todos.map((t) =>
-              t.id === todoId ? { ...t, completed: currentCompleted } : t,
+              t.id === todoId ? { ...t, completed: currentCompleted } : t
             ),
-          })),
+          }))
         );
       }
     } catch {
@@ -98,10 +98,8 @@ export default function ActiveCourses({ userId, onEnrollmentChange }: ActiveCour
       setEnrollments((prev) =>
         prev.map((e) => ({
           ...e,
-          todos: e.todos.map((t) =>
-            t.id === todoId ? { ...t, completed: currentCompleted } : t,
-          ),
-        })),
+          todos: e.todos.map((t) => (t.id === todoId ? { ...t, completed: currentCompleted } : t)),
+        }))
       );
     }
   };
@@ -123,10 +121,8 @@ export default function ActiveCourses({ userId, onEnrollmentChange }: ActiveCour
         const data = await res.json();
         setEnrollments((prev) =>
           prev.map((e) =>
-            e.enrollment.id === enrollmentId
-              ? { ...e, todos: [...e.todos, data.todo] }
-              : e,
-          ),
+            e.enrollment.id === enrollmentId ? { ...e, todos: [...e.todos, data.todo] } : e
+          )
         );
         setNewTaskInputs((prev) => ({ ...prev, [enrollmentId]: '' }));
       }
@@ -148,8 +144,8 @@ export default function ActiveCourses({ userId, onEnrollmentChange }: ActiveCour
           prev.map((e) =>
             e.enrollment.id === enrollmentId
               ? { ...e, todos: e.todos.filter((t) => t.id !== todoId) }
-              : e,
-          ),
+              : e
+          )
         );
       }
     } catch (err) {
@@ -190,7 +186,8 @@ export default function ActiveCourses({ userId, onEnrollmentChange }: ActiveCour
         const completedCount = todos.filter((t) => t.completed === 1).length;
         const totalCount = todos.length;
         const allDone = totalCount > 0 && completedCount === totalCount;
-        const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+        const progressPercent =
+          totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
         return (
           <div
@@ -222,7 +219,9 @@ export default function ActiveCourses({ userId, onEnrollmentChange }: ActiveCour
                 {enrollment.quizScore !== null && (
                   <div className="bg-white/20 rounded-lg px-3 py-1.5 text-center">
                     <p className="text-white/70 text-[10px] uppercase tracking-wider">Last Score</p>
-                    <p className={`text-lg font-bold ${enrollment.quizScore >= 75 ? 'text-emerald-200' : 'text-red-200'}`}>
+                    <p
+                      className={`text-lg font-bold ${enrollment.quizScore >= 75 ? 'text-emerald-200' : 'text-red-200'}`}
+                    >
                       {enrollment.quizScore}%
                     </p>
                   </div>
@@ -273,16 +272,20 @@ export default function ActiveCourses({ userId, onEnrollmentChange }: ActiveCour
                       }`}
                     >
                       {todo.completed === 1 && (
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={3}
+                        >
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       )}
                     </button>
                     <span
                       className={`flex-1 text-sm ${
-                        todo.completed
-                          ? 'text-gray-400 line-through'
-                          : 'text-gray-700'
+                        todo.completed ? 'text-gray-400 line-through' : 'text-gray-700'
                       }`}
                     >
                       {todo.title}

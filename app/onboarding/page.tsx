@@ -113,8 +113,8 @@ export default function OnboardingPage() {
                 What&apos;s your learning goal?
               </h1>
               <p className="text-gray-600 leading-relaxed">
-                Tell us what you want to achieve and we&apos;ll personalize your
-                learning experience with courses tailored just for you.
+                Tell us what you want to achieve and we&apos;ll personalize your learning experience
+                with courses tailored just for you.
               </p>
             </div>
 
@@ -141,9 +141,7 @@ export default function OnboardingPage() {
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-gray-700 text-sm resize-none transition-all duration-200 placeholder-gray-400"
                   disabled={isValidating}
                 />
-                <p className="text-xs text-gray-400 mt-1 text-right">
-                  {goal.length}/500
-                </p>
+                <p className="text-xs text-gray-400 mt-1 text-right">{goal.length}/500</p>
               </div>
 
               <button

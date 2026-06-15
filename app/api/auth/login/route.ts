@@ -11,34 +11,21 @@ export async function POST(request: Request) {
     const { username, password } = body;
 
     if (!username || !password) {
-      return NextResponse.json(
-        { error: 'Username and password are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
     }
 
     // Find user by username
-    const user = await db
-      .select()
-      .from(users)
-      .where(eq(users.username, username))
-      .limit(1);
+    const user = await db.select().from(users).where(eq(users.username, username)).limit(1);
 
     if (user.length === 0) {
-      return NextResponse.json(
-        { error: 'Invalid username or password' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
     }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user[0].password);
 
     if (!isPasswordValid) {
-      return NextResponse.json(
-        { error: 'Invalid username or password' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
     }
 
     // Create session

@@ -16,10 +16,7 @@ export async function POST(request: Request) {
     const { enrollmentId, score } = body;
 
     if (enrollmentId === undefined || score === undefined) {
-      return NextResponse.json(
-        { error: 'enrollmentId and score are required' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'enrollmentId and score are required' }, { status: 400 });
     }
 
     // Verify enrollment exists and is active
@@ -34,10 +31,7 @@ export async function POST(request: Request) {
     }
 
     if (enrollment[0].status !== 'active') {
-      return NextResponse.json(
-        { error: 'This enrollment is already completed' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'This enrollment is already completed' }, { status: 400 });
     }
 
     const passed = score >= PASS_THRESHOLD;

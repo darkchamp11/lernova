@@ -18,11 +18,11 @@ async function testConnectivity() {
   // Test Redis
   try {
     const client = createClient({
-      url: 'redis://localhost:6379'
+      url: 'redis://localhost:6379',
     });
-    
-    client.on('error', err => console.error('Redis Client Error', err));
-    
+
+    client.on('error', (err) => console.error('Redis Client Error', err));
+
     await client.connect();
     console.log('✅ Successfully connected to Redis!');
     await client.disconnect();

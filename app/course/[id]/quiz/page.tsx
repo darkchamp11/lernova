@@ -129,7 +129,7 @@ export default function QuizPage() {
             if (enrollRes.ok) {
               const enrollData = await enrollRes.json();
               const myEnrollment = (enrollData.enrollments || []).find(
-                (e: EnrollmentData) => e.enrollment.id === enrollmentId,
+                (e: EnrollmentData) => e.enrollment.id === enrollmentId
               );
               if (myEnrollment) {
                 todos = myEnrollment.todos.map((t: TodoItem) => t.title);
@@ -182,7 +182,8 @@ export default function QuizPage() {
   };
 
   const allAnswered =
-    Object.keys(answers).length >= mcqQuestions.length && (writtenQuestion ? writtenAnswer.trim().length > 0 : true);
+    Object.keys(answers).length >= mcqQuestions.length &&
+    (writtenQuestion ? writtenAnswer.trim().length > 0 : true);
 
   const handleSubmit = async () => {
     if (!allAnswered) {
@@ -570,7 +571,9 @@ export default function QuizPage() {
                     <div className="flex items-center justify-between mb-2">
                       <p
                         className={`font-semibold text-sm ${
-                          analysis.writtenFeedback.score >= 70 ? 'text-emerald-700' : 'text-amber-700'
+                          analysis.writtenFeedback.score >= 70
+                            ? 'text-emerald-700'
+                            : 'text-amber-700'
                         }`}
                       >
                         Written Answer Score: {analysis.writtenFeedback.score}%
@@ -581,7 +584,9 @@ export default function QuizPage() {
 
                   {analysis.writtenFeedback.suggestions.length > 0 && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-blue-700 font-semibold text-sm mb-2">💡 Suggestions for improvement:</p>
+                      <p className="text-blue-700 font-semibold text-sm mb-2">
+                        💡 Suggestions for improvement:
+                      </p>
                       <ul className="list-disc list-inside space-y-1">
                         {analysis.writtenFeedback.suggestions.map((s, i) => (
                           <li key={`suggestion-${i}`} className="text-blue-800 text-sm">
@@ -617,9 +622,15 @@ export default function QuizPage() {
           ) : analysis ? (
             <div className="space-y-6">
               {/* Overall score card */}
-              <div className={`bg-white rounded-xl shadow-lg p-8 border-2 inline-block ${
-                passed === true ? 'border-emerald-200' : passed === false ? 'border-red-200' : 'border-gray-100'
-              }`}>
+              <div
+                className={`bg-white rounded-xl shadow-lg p-8 border-2 inline-block ${
+                  passed === true
+                    ? 'border-emerald-200'
+                    : passed === false
+                      ? 'border-red-200'
+                      : 'border-gray-100'
+                }`}
+              >
                 <p className="text-sm text-gray-500 uppercase tracking-wider mb-1">Overall Score</p>
                 <p className="text-5xl font-bold mb-2">
                   <span
@@ -637,11 +648,11 @@ export default function QuizPage() {
 
                 {/* Enrollment-specific pass/fail message */}
                 {enrollmentId ? (
-                  <div className={`mt-3 px-4 py-2 rounded-lg ${
-                    passed
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : 'bg-red-50 text-red-700'
-                  }`}>
+                  <div
+                    className={`mt-3 px-4 py-2 rounded-lg ${
+                      passed ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                    }`}
+                  >
                     <p className="font-semibold text-sm">
                       {passed
                         ? '🎉 Congratulations! You passed! Course slot is now free.'

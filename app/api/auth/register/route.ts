@@ -14,10 +14,7 @@ export async function POST(request: Request) {
 
     // Validation
     if (!username || !password) {
-      return NextResponse.json(
-        { error: 'Username and password are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
     }
 
     if (username.length < 3) {
@@ -42,10 +39,7 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (existingUser.length > 0) {
-      return NextResponse.json(
-        { error: 'Username or email already exists' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'Username or email already exists' }, { status: 409 });
     }
 
     // Hash password
@@ -82,9 +76,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Error in registration:', error);
-    return NextResponse.json(
-      { error: 'Registration failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Registration failed' }, { status: 500 });
   }
 }

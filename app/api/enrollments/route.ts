@@ -34,12 +34,7 @@ export async function GET(request: Request) {
       })
       .from(enrollments)
       .innerJoin(content, eq(enrollments.contentId, content.id))
-      .where(
-        and(
-          eq(enrollments.userId, numericUserId),
-          eq(enrollments.status, 'active'),
-        ),
-      )
+      .where(and(eq(enrollments.userId, numericUserId), eq(enrollments.status, 'active')))
       .orderBy(enrollments.createdAt);
 
     // Fetch todos for each enrollment
@@ -52,7 +47,7 @@ export async function GET(request: Request) {
           .orderBy(asc(enrollmentTodos.sortOrder), asc(enrollmentTodos.createdAt));
 
         return { enrollment, course, todos };
-      }),
+      })
     );
 
     return NextResponse.json({ enrollments: enriched });
@@ -71,27 +66,22 @@ export async function POST(request: Request) {
     const { userId, contentId } = body;
 
     if (!userId || !contentId) {
-      return NextResponse.json(
-        { error: 'userId and contentId are required' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'userId and contentId are required' }, { status: 400 });
     }
 
     // Check max 2 active enrollments
     const activeCount = await db
       .select({ id: enrollments.id })
       .from(enrollments)
-      .where(
-        and(
-          eq(enrollments.userId, userId),
-          eq(enrollments.status, 'active'),
-        ),
-      );
+      .where(and(eq(enrollments.userId, userId), eq(enrollments.status, 'active')));
 
     if (activeCount.length >= 2) {
       return NextResponse.json(
-        { error: 'You can only have 2 active courses at a time. Complete or pass a course to free a slot.' },
-        { status: 403 },
+        {
+          error:
+            'You can only have 2 active courses at a time. Complete or pass a course to free a slot.',
+        },
+        { status: 403 }
       );
     }
 
@@ -103,24 +93,20 @@ export async function POST(request: Request) {
         and(
           eq(enrollments.userId, userId),
           eq(enrollments.contentId, contentId),
-          eq(enrollments.status, 'active'),
-        ),
+          eq(enrollments.status, 'active')
+        )
       )
       .limit(1);
 
     if (existing.length > 0) {
       return NextResponse.json(
         { error: 'You are already enrolled in this course.' },
-        { status: 409 },
+        { status: 409 }
       );
     }
 
     // Fetch course details for AI prompt
-    const courseData = await db
-      .select()
-      .from(content)
-      .where(eq(content.id, contentId))
-      .limit(1);
+    const courseData = await db.select().from(content).where(eq(content.id, contentId)).limit(1);
 
     if (courseData.length === 0) {
       return NextResponse.json({ error: 'Course not found' }, { status: 404 });
@@ -184,7 +170,7 @@ Requirements:
           completed: 0,
           isCustom: 0,
           sortOrder: index,
-        })),
+        }))
       );
     }
 

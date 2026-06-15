@@ -14,17 +14,15 @@ export default function AdvancedPage() {
           {/* Trophy icon */}
           <div className="text-7xl mb-6">🎉</div>
 
-          <h1 className="text-3xl font-bold text-gray-800 mb-3">
-            Perfect Score!
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-3">Perfect Score!</h1>
 
           <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full font-bold text-lg mb-6">
             <span>💯</span> 100%
           </div>
 
           <p className="text-gray-600 mb-8 leading-relaxed">
-            Outstanding work! You&apos;ve demonstrated an excellent understanding of
-            the material. You&apos;re ready to move on to more advanced topics.
+            Outstanding work! You&apos;ve demonstrated an excellent understanding of the material.
+            You&apos;re ready to move on to more advanced topics.
           </p>
 
           <div className="space-y-3">

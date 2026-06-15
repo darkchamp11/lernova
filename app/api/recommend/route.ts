@@ -54,49 +54,49 @@ Return only topics from the list above that are relevant to the goal. Return at 
     // Basic keyword matching fallback
     const goalLower = goal.toLowerCase();
     const topicMap: Record<string, string> = {
-      'web': 'Web Development',
-      'frontend': 'Web Development',
-      'react': 'Web Development',
-      'next': 'Web Development',
-      'css': 'Web Development',
-      'html': 'Web Development',
-      'backend': 'Backend Development',
-      'api': 'Backend Development',
-      'rest': 'Backend Development',
-      'python': 'Programming',
-      'javascript': 'Programming',
-      'typescript': 'Programming',
-      'java': 'Programming',
-      'programming': 'Programming',
-      'code': 'Programming',
-      'coding': 'Programming',
-      'algorithm': 'Computer Science',
+      web: 'Web Development',
+      frontend: 'Web Development',
+      react: 'Web Development',
+      next: 'Web Development',
+      css: 'Web Development',
+      html: 'Web Development',
+      backend: 'Backend Development',
+      api: 'Backend Development',
+      rest: 'Backend Development',
+      python: 'Programming',
+      javascript: 'Programming',
+      typescript: 'Programming',
+      java: 'Programming',
+      programming: 'Programming',
+      code: 'Programming',
+      coding: 'Programming',
+      algorithm: 'Computer Science',
       'data structure': 'Computer Science',
       'system design': 'Software Engineering',
-      'software': 'Software Engineering',
+      software: 'Software Engineering',
       'machine learning': 'AI & ML',
-      'ai': 'AI & ML',
+      ai: 'AI & ML',
       'artificial intelligence': 'AI & ML',
       'deep learning': 'AI & ML',
-      'neural': 'AI & ML',
-      'ml': 'AI & ML',
-      'docker': 'DevOps',
-      'kubernetes': 'DevOps',
-      'devops': 'DevOps',
+      neural: 'AI & ML',
+      ml: 'AI & ML',
+      docker: 'DevOps',
+      kubernetes: 'DevOps',
+      devops: 'DevOps',
       'ci/cd': 'DevOps',
-      'cloud': 'Cloud',
-      'aws': 'Cloud',
-      'azure': 'Cloud',
-      'database': 'Databases',
-      'sql': 'Databases',
-      'postgres': 'Databases',
-      'redis': 'Databases',
-      'mongodb': 'Databases',
-      'git': 'Tools',
-      'blockchain': 'Emerging Tech',
-      'web3': 'Emerging Tech',
+      cloud: 'Cloud',
+      aws: 'Cloud',
+      azure: 'Cloud',
+      database: 'Databases',
+      sql: 'Databases',
+      postgres: 'Databases',
+      redis: 'Databases',
+      mongodb: 'Databases',
+      git: 'Tools',
+      blockchain: 'Emerging Tech',
+      web3: 'Emerging Tech',
       'full stack': 'Web Development',
-      'fullstack': 'Web Development',
+      fullstack: 'Web Development',
       'full-stack': 'Web Development',
       'data scien': 'AI & ML',
     };
@@ -164,19 +164,13 @@ export async function GET(request: Request) {
     const completedCourses = await db
       .select({ contentId: progress.contentId })
       .from(progress)
-      .where(
-        and(
-          eq(progress.userId, numericUserId),
-          eq(progress.completed, 1),
-        ),
-      );
+      .where(and(eq(progress.userId, numericUserId), eq(progress.completed, 1)));
 
     const completedIds = completedCourses.map((c) => c.contentId);
 
     // Build base exclusion condition
-    const exclusionCondition = completedIds.length > 0
-      ? notInArray(content.id, completedIds)
-      : undefined;
+    const exclusionCondition =
+      completedIds.length > 0 ? notInArray(content.id, completedIds) : undefined;
 
     let recommendations: (typeof content.$inferSelect)[] = [];
 
@@ -187,9 +181,8 @@ export async function GET(request: Request) {
       if (goalTopics.length > 0) {
         // Build topic match conditions
         const topicConditions = goalTopics.map((t) => eq(content.topic, t));
-        const topicFilter = topicConditions.length === 1
-          ? topicConditions[0]
-          : or(...topicConditions);
+        const topicFilter =
+          topicConditions.length === 1 ? topicConditions[0] : or(...topicConditions);
 
         // Priority 1: Courses matching goal topics at right difficulty, excluding completed
         const conditions = [topicFilter];
@@ -208,7 +201,12 @@ export async function GET(request: Request) {
           const relaxedConditions = [topicFilter];
           if (exclusionCondition) relaxedConditions.push(exclusionCondition);
           if (recommendations.length > 0) {
-            relaxedConditions.push(notInArray(content.id, recommendations.map((r) => r.id)));
+            relaxedConditions.push(
+              notInArray(
+                content.id,
+                recommendations.map((r) => r.id)
+              )
+            );
           }
 
           const more = await db
@@ -227,9 +225,8 @@ export async function GET(request: Request) {
     if (recommendations.length < 3) {
       const existingIds = recommendations.map((r) => r.id);
       const allExcluded = [...completedIds, ...existingIds];
-      const fallbackExclusion = allExcluded.length > 0
-        ? notInArray(content.id, allExcluded)
-        : undefined;
+      const fallbackExclusion =
+        allExcluded.length > 0 ? notInArray(content.id, allExcluded) : undefined;
 
       const fallbackConditions = [eq(content.difficulty, targetDifficulty)];
       if (fallbackExclusion) fallbackConditions.push(fallbackExclusion);
@@ -254,11 +251,7 @@ export async function GET(request: Request) {
           .orderBy(sql`RANDOM()`)
           .limit(6);
       } else {
-        recommendations = await db
-          .select()
-          .from(content)
-          .orderBy(sql`RANDOM()`)
-          .limit(6);
+        recommendations = await db.select().from(content).orderBy(sql`RANDOM()`).limit(6);
       }
     }
 

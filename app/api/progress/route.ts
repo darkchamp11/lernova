@@ -6,17 +6,17 @@ import { deleteCachedData } from '@/src/lib/redis';
 
 // Maps course topics to knowledgeVec dimension indices
 const TOPIC_TO_DIMENSION: Record<string, number> = {
-  'Programming': 0,
+  Programming: 0,
   'Web Development': 1,
   'Backend Development': 1,
   'Computer Science': 2,
   'Software Engineering': 2,
   'AI & ML': 3,
   'Emerging Tech': 3,
-  'DevOps': 4,
-  'Cloud': 4,
-  'Databases': 2,
-  'Tools': 4,
+  DevOps: 4,
+  Cloud: 4,
+  Databases: 2,
+  Tools: 4,
 };
 
 function getTopicDimension(topic: string): number {
@@ -60,10 +60,7 @@ async function updateKnowledgeProfile(userId: number): Promise<void> {
   });
 
   // Update the user's knowledge vector
-  await db
-    .update(users)
-    .set({ knowledgeVec, updatedAt: new Date() })
-    .where(eq(users.id, userId));
+  await db.update(users).set({ knowledgeVec, updatedAt: new Date() }).where(eq(users.id, userId));
 }
 
 export async function GET(request: Request) {

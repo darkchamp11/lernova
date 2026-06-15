@@ -121,7 +121,7 @@ async function callOllama(prompt: string, opts: AIRequestOptions): Promise<strin
  */
 export async function generateAIResponse(
   prompt: string,
-  options: AIRequestOptions = {},
+  options: AIRequestOptions = {}
 ): Promise<{ text: string; provider: 'groq' | 'ollama' }> {
   // Try Groq first
   if (GROQ_API_KEY) {
@@ -139,7 +139,7 @@ export async function generateAIResponse(
     return { text, provider: 'ollama' };
   } catch (err) {
     throw new Error(
-      `Both AI providers failed. Groq: ${GROQ_API_KEY ? 'key set but errored' : 'no key'}. Ollama: ${(err as Error).message}`,
+      `Both AI providers failed. Groq: ${GROQ_API_KEY ? 'key set but errored' : 'no key'}. Ollama: ${(err as Error).message}`
     );
   }
 }
@@ -150,12 +150,15 @@ export async function generateAIResponse(
  */
 export async function generateAIJSON<T = unknown>(
   prompt: string,
-  options: Omit<AIRequestOptions, 'json'> = {},
+  options: Omit<AIRequestOptions, 'json'> = {}
 ): Promise<{ data: T; provider: 'groq' | 'ollama' }> {
   const { text, provider } = await generateAIResponse(prompt, { ...options, json: true });
 
   // Some models wrap JSON in markdown code fences — strip them
-  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  const cleaned = text
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
 
   try {
     const data = JSON.parse(cleaned) as T;

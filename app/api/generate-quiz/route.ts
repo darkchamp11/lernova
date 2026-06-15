@@ -26,18 +26,16 @@ export async function POST(request: Request) {
     const { topic, difficulty, count = 4, todos } = body;
 
     if (!topic || !difficulty) {
-      return NextResponse.json(
-        { error: 'topic and difficulty are required' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'topic and difficulty are required' }, { status: 400 });
     }
 
     const mcqCount = Math.max(1, count - 1);
 
     // Build the study tasks context if provided
-    const todosContext = todos && todos.length > 0
-      ? `\n\nThe student has been studying the following specific tasks. Questions MUST be based on these topics:\n${todos.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
-      : '';
+    const todosContext =
+      todos && todos.length > 0
+        ? `\n\nThe student has been studying the following specific tasks. Questions MUST be based on these topics:\n${todos.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
+        : '';
 
     const prompt = `Generate a quiz about "${topic}" at "${difficulty}" difficulty level.${todosContext}
 
@@ -82,7 +80,7 @@ Requirements:
     if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
       return NextResponse.json(
         { error: 'AI model returned an invalid quiz format. Please try again.' },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -91,18 +89,14 @@ Requirements:
       if (!q.question || !q.type) {
         return NextResponse.json(
           { error: 'AI model returned a question with missing fields. Please try again.' },
-          { status: 500 },
+          { status: 500 }
         );
       }
       if (q.type === 'mcq') {
-        if (
-          !Array.isArray(q.options) ||
-          q.options.length < 2 ||
-          !q.correctAnswer
-        ) {
+        if (!Array.isArray(q.options) || q.options.length < 2 || !q.correctAnswer) {
           return NextResponse.json(
             { error: 'AI model returned an invalid MCQ format. Please try again.' },
-            { status: 500 },
+            { status: 500 }
           );
         }
       }
@@ -114,14 +108,17 @@ Requirements:
 
     if (error instanceof TypeError && (error as TypeError).message.includes('fetch')) {
       return NextResponse.json(
-        { error: 'Cannot connect to any AI provider. Make sure Ollama is running or GROQ_API_KEY is set.' },
-        { status: 502 },
+        {
+          error:
+            'Cannot connect to any AI provider. Make sure Ollama is running or GROQ_API_KEY is set.',
+        },
+        { status: 502 }
       );
     }
 
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to generate quiz questions' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

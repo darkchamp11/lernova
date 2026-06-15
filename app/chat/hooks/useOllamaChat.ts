@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from 'react';
 
-const STORAGE_KEY = "lernova_chat_messages";
+const STORAGE_KEY = 'lernova_chat_messages';
 
 export interface Message {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-export type Provider = "ollama" | "groq";
+export type Provider = 'ollama' | 'groq';
 
 export interface ChatConfig {
   provider: Provider;
@@ -22,8 +22,8 @@ export interface ChatConfig {
 
 // Helper function to remove thinking context from AI responses
 const removeThinkingContext = (text: string): string => {
-  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gim, "");
-  cleaned = cleaned.replace(/<\/?think>/gim, "");
+  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gim, '');
+  cleaned = cleaned.replace(/<\/?think>/gim, '');
   return cleaned.trim();
 };
 
@@ -44,8 +44,8 @@ async function streamOllama(
   onToken: (fullText: string) => void
 ): Promise<void> {
   const res = await fetch(`${config.ollamaUrl}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: config.model,
       stream: true,
@@ -59,17 +59,17 @@ async function streamOllama(
   }
 
   const reader = res.body?.getReader();
-  if (!reader) throw new Error("No response body from Ollama");
+  if (!reader) throw new Error('No response body from Ollama');
 
-  const decoder = new TextDecoder("utf-8");
-  let fullText = "";
+  const decoder = new TextDecoder('utf-8');
+  let fullText = '';
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
     const chunk = decoder.decode(value, { stream: true });
-    const lines = chunk.split("\n").filter((line) => line.trim());
+    const lines = chunk.split('\n').filter((line) => line.trim());
 
     for (const line of lines) {
       try {
@@ -94,10 +94,10 @@ async function streamGroq(
   conversationMessages: Message[],
   onToken: (fullText: string) => void
 ): Promise<void> {
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${config.groqApiKey}`,
     },
     body: JSON.stringify({
@@ -112,35 +112,35 @@ async function streamGroq(
   if (!res.ok) {
     const errorBody = await res.text();
     if (res.status === 401) {
-      throw new Error("Invalid Groq API key. Please check your key in settings.");
+      throw new Error('Invalid Groq API key. Please check your key in settings.');
     }
     if (res.status === 429) {
-      throw new Error("Groq rate limit exceeded. Please wait a moment and try again.");
+      throw new Error('Groq rate limit exceeded. Please wait a moment and try again.');
     }
     throw new Error(`Groq API error (${res.status}): ${errorBody}`);
   }
 
   const reader = res.body?.getReader();
-  if (!reader) throw new Error("No response body from Groq");
+  if (!reader) throw new Error('No response body from Groq');
 
-  const decoder = new TextDecoder("utf-8");
-  let fullText = "";
-  let buffer = "";
+  const decoder = new TextDecoder('utf-8');
+  let fullText = '';
+  let buffer = '';
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || ""; // Keep incomplete line in buffer
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || ''; // Keep incomplete line in buffer
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith("data: ")) continue;
+      if (!trimmed || !trimmed.startsWith('data: ')) continue;
 
       const data = trimmed.slice(6); // Remove "data: " prefix
-      if (data === "[DONE]") break;
+      if (data === '[DONE]') break;
 
       try {
         const json = JSON.parse(data);
@@ -185,12 +185,12 @@ export const useChat = (config: ChatConfig, systemPrompt: string) => {
 
   const sendMessage = useCallback(
     async (userMsg: string) => {
-      if (config.provider === "ollama" && !config.ollamaUrl) {
-        setError("Please set the Ollama endpoint URL in settings.");
+      if (config.provider === 'ollama' && !config.ollamaUrl) {
+        setError('Please set the Ollama endpoint URL in settings.');
         return;
       }
-      if (config.provider === "groq" && !config.groqApiKey) {
-        setError("Please set your Groq API key in settings.");
+      if (config.provider === 'groq' && !config.groqApiKey) {
+        setError('Please set your Groq API key in settings.');
         return;
       }
       if (!userMsg.trim()) return;
@@ -198,12 +198,12 @@ export const useChat = (config: ChatConfig, systemPrompt: string) => {
       setError(null);
       setIsLoading(true);
 
-      const newMsg: Message = { role: "user", content: userMsg };
+      const newMsg: Message = { role: 'user', content: userMsg };
       setMessages((prev) => [...prev, newMsg]);
 
       try {
         const conversationMessages: Message[] = [
-          { role: "system", content: systemPrompt },
+          { role: 'system', content: systemPrompt },
           ...messages,
           newMsg,
         ];
@@ -218,16 +218,13 @@ export const useChat = (config: ChatConfig, systemPrompt: string) => {
           if (!cleanedText) return;
 
           if (!assistantMessageAdded) {
-            setMessages((prev) => [
-              ...prev,
-              { role: "assistant", content: cleanedText },
-            ]);
+            setMessages((prev) => [...prev, { role: 'assistant', content: cleanedText }]);
             assistantMessageAdded = true;
           } else {
             setMessages((prev) => {
               const updated = [...prev];
               updated[updated.length - 1] = {
-                role: "assistant",
+                role: 'assistant',
                 content: cleanedText,
               };
               return updated;
@@ -235,7 +232,7 @@ export const useChat = (config: ChatConfig, systemPrompt: string) => {
           }
         };
 
-        if (config.provider === "ollama") {
+        if (config.provider === 'ollama') {
           await streamOllama(config, conversationMessages, handleToken);
         } else {
           await streamGroq(config, conversationMessages, handleToken);
@@ -244,13 +241,12 @@ export const useChat = (config: ChatConfig, systemPrompt: string) => {
         setIsLoading(false);
       } catch (err) {
         setIsLoading(false);
-        const errorMessage =
-          err instanceof Error ? err.message : "An error occurred";
+        const errorMessage = err instanceof Error ? err.message : 'An error occurred';
         setError(errorMessage);
         setMessages((prev) => [
           ...prev,
           {
-            role: "assistant",
+            role: 'assistant',
             content: `Error: ${errorMessage}`,
           },
         ]);

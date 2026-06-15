@@ -200,13 +200,14 @@ export default function DashboardPage() {
   };
 
   // Prepare radar chart data from knowledgeVec
-  const radarData = profile?.knowledgeVec
-    ? TOPIC_LABELS.map((label, i) => ({
-        subject: label,
-        value: Math.round((profile.knowledgeVec?.[i] ?? 0) * 100),
-        fullMark: 100,
-      }))
-    : [];
+  const radarData =
+    profile?.knowledgeVec && profile.knowledgeVec.length > 0
+      ? TOPIC_LABELS.map((label, i) => ({
+          subject: label,
+          value: Math.round((profile.knowledgeVec?.[i] ?? 0) * 100),
+          fullMark: 100,
+        }))
+      : [];
 
   // Prepare bar chart data from recent progress
   const barData = recentProgress.map((p) => ({
@@ -215,11 +216,12 @@ export default function DashboardPage() {
   }));
 
   // Determine difficulty badge styling
-  const difficultyBadge = {
-    beginner: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    intermediate: 'bg-amber-100 text-amber-700 border-amber-200',
-    advanced: 'bg-red-100 text-red-700 border-red-200',
-  }[targetDifficulty] ?? 'bg-gray-100 text-gray-700 border-gray-200';
+  const difficultyBadge =
+    {
+      beginner: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+      intermediate: 'bg-amber-100 text-amber-700 border-amber-200',
+      advanced: 'bg-red-100 text-red-700 border-red-200',
+    }[targetDifficulty] ?? 'bg-gray-100 text-gray-700 border-gray-200';
 
   if (loading) {
     return (
@@ -293,7 +295,9 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Target Difficulty</p>
-                <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold border ${difficultyBadge}`}>
+                <span
+                  className={`inline-block px-3 py-1 rounded-full text-sm font-bold border ${difficultyBadge}`}
+                >
                   {targetDifficulty.charAt(0).toUpperCase() + targetDifficulty.slice(1)}
                 </span>
               </div>
@@ -325,7 +329,11 @@ export default function DashboardPage() {
                   {goal && !isEditingGoal && (
                     <button
                       type="button"
-                      onClick={() => { setGoalInput(goal); setIsEditingGoal(true); setGoalError(''); }}
+                      onClick={() => {
+                        setGoalInput(goal);
+                        setIsEditingGoal(true);
+                        setGoalError('');
+                      }}
                       className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                     >
                       Edit
@@ -344,9 +352,7 @@ export default function DashboardPage() {
                       placeholder="e.g., I want to learn full-stack web development"
                       disabled={goalSaving}
                     />
-                    {goalError && (
-                      <p className="text-xs text-red-600">{goalError}</p>
-                    )}
+                    {goalError && <p className="text-xs text-red-600">{goalError}</p>}
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -381,7 +387,10 @@ export default function DashboardPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setIsEditingGoal(false); setGoalError(''); }}
+                        onClick={() => {
+                          setIsEditingGoal(false);
+                          setGoalError('');
+                        }}
                         disabled={goalSaving}
                         className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold py-1.5 px-3 rounded-md transition-colors"
                       >
@@ -394,7 +403,11 @@ export default function DashboardPage() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => { setGoalInput(''); setIsEditingGoal(true); setGoalError(''); }}
+                    onClick={() => {
+                      setGoalInput('');
+                      setIsEditingGoal(true);
+                      setGoalError('');
+                    }}
                     className="w-full text-left bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm px-3 py-2 rounded-lg transition-colors"
                   >
                     + Set a learning goal to get personalized recommendations

@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect, useMemo } from "react";
-import MessageBubble from "./MessageBubble";
-import { useChat, type ChatConfig } from "../hooks/useOllamaChat";
+import { useState, useRef, useEffect, useMemo } from 'react';
+import MessageBubble from './MessageBubble';
+import { useChat, type ChatConfig } from '../hooks/useOllamaChat';
 
 interface ChatBoxProps {
   config: ChatConfig;
@@ -23,7 +23,7 @@ interface UserContext {
   averageScore: number;
 }
 
-const TOPIC_LABELS = ["Programming", "Web Development", "Computer Science", "AI & ML", "DevOps"];
+const TOPIC_LABELS = ['Programming', 'Web Development', 'Computer Science', 'AI & ML', 'DevOps'];
 
 const BASE_PROMPT = `You are "Lernova AI Tutor", a strict educational assistant for the Lernova Smart Learning Platform.
 
@@ -60,16 +60,22 @@ RESPONSE STYLE:
 function buildSystemPrompt(ctx: UserContext | null): string {
   if (!ctx) return BASE_PROMPT;
 
-  const knowledgeStr = ctx.knowledgeVec
-    ? TOPIC_LABELS.map((label, i) => `  - ${label}: ${Math.round((ctx.knowledgeVec?.[i] ?? 0) * 100)}%`).join("\n")
-    : "  No knowledge data available yet.";
+  const knowledgeStr =
+    ctx.knowledgeVec && ctx.knowledgeVec.length > 0
+      ? TOPIC_LABELS.map(
+          (label, i) => `  - ${label}: ${Math.round((ctx.knowledgeVec?.[i] ?? 0) * 100)}%`
+        ).join('\n')
+      : '  No knowledge data available yet.';
 
-  const progressStr = ctx.recentProgress.length > 0
-    ? ctx.recentProgress.map((p) => {
-        const status = p.completed ? "✅ Completed" : "🔄 In Progress";
-        return `  - "${p.contentTitle}" (${p.contentTopic}) — Score: ${p.score ?? 0}% — ${status}`;
-      }).join("\n")
-    : "  No courses attempted yet.";
+  const progressStr =
+    ctx.recentProgress.length > 0
+      ? ctx.recentProgress
+          .map((p) => {
+            const status = p.completed ? '✅ Completed' : '🔄 In Progress';
+            return `  - "${p.contentTitle}" (${p.contentTopic}) — Score: ${p.score ?? 0}% — ${status}`;
+          })
+          .join('\n')
+      : '  No courses attempted yet.';
 
   const studentContext = `
 
@@ -96,7 +102,7 @@ INSTRUCTIONS FOR USING THIS DATA:
 }
 
 export default function ChatBox({ config }: ChatBoxProps) {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -105,7 +111,7 @@ export default function ChatBox({ config }: ChatBoxProps) {
     const fetchUserContext = async () => {
       try {
         // Get session
-        const sessionRes = await fetch("/api/auth/session");
+        const sessionRes = await fetch('/api/auth/session');
         if (!sessionRes.ok) return;
         const sessionData = await sessionRes.json();
         if (!sessionData.authenticated) return;
@@ -128,12 +134,12 @@ export default function ChatBox({ config }: ChatBoxProps) {
             email: profileData.user.email,
             knowledgeVec: profileData.user.knowledgeVec,
             recentProgress: profileData.recentProgress || [],
-            targetDifficulty: recommendData?.targetDifficulty || "beginner",
+            targetDifficulty: recommendData?.targetDifficulty || 'beginner',
             averageScore: recommendData?.averageScore || 0,
           });
         }
       } catch (err) {
-        console.error("Error fetching user context for chat:", err);
+        console.error('Error fetching user context for chat:', err);
       }
     };
 
@@ -142,11 +148,10 @@ export default function ChatBox({ config }: ChatBoxProps) {
 
   const systemPrompt = useMemo(() => buildSystemPrompt(userContext), [userContext]);
 
-  const { messages, sendMessage, isLoading, error, clearMessages } =
-    useChat(config, systemPrompt);
+  const { messages, sendMessage, isLoading, error, clearMessages } = useChat(config, systemPrompt);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -158,21 +163,20 @@ export default function ChatBox({ config }: ChatBoxProps) {
     if (!input.trim() || isLoading) return;
 
     const messageToSend = input;
-    setInput("");
+    setInput('');
     await sendMessage(messageToSend);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
   };
 
   // Provider badge
-  const providerLabel = config.provider === "groq"
-    ? `⚡ Groq · ${config.model}`
-    : `🦙 Ollama · ${config.model}`;
+  const providerLabel =
+    config.provider === 'groq' ? `⚡ Groq · ${config.model}` : `🦙 Ollama · ${config.model}`;
 
   return (
     <div className="flex flex-col h-full">
@@ -199,17 +203,15 @@ export default function ChatBox({ config }: ChatBoxProps) {
               Welcome to Your AI Tutor!
             </h2>
             <p className="text-gray-600 dark:text-gray-400 max-w-md mb-2">
-              Ask me anything about your courses, concepts you&apos;re learning, or
-              get personalized learning recommendations.
+              Ask me anything about your courses, concepts you&apos;re learning, or get personalized
+              learning recommendations.
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
               Powered by {providerLabel}
             </p>
             <div className="mt-2 grid gap-2 w-full max-w-lg">
               <button
-                onClick={() =>
-                  sendMessage("Explain neural networks in simple terms")
-                }
+                onClick={() => sendMessage('Explain neural networks in simple terms')}
                 className="text-left px-4 py-3 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -217,9 +219,7 @@ export default function ChatBox({ config }: ChatBoxProps) {
                 </p>
               </button>
               <button
-                onClick={() =>
-                  sendMessage("How can I improve my learning efficiency?")
-                }
+                onClick={() => sendMessage('How can I improve my learning efficiency?')}
                 className="text-left px-4 py-3 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -227,11 +227,7 @@ export default function ChatBox({ config }: ChatBoxProps) {
                 </p>
               </button>
               <button
-                onClick={() =>
-                  sendMessage(
-                    "What are the best practices for studying programming?"
-                  )
-                }
+                onClick={() => sendMessage('What are the best practices for studying programming?')}
                 className="text-left px-4 py-3 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -253,20 +249,18 @@ export default function ChatBox({ config }: ChatBoxProps) {
                 <div className="flex space-x-1">
                   <div
                     className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
-                    style={{ animationDelay: "0ms" }}
+                    style={{ animationDelay: '0ms' }}
                   ></div>
                   <div
                     className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
-                    style={{ animationDelay: "150ms" }}
+                    style={{ animationDelay: '150ms' }}
                   ></div>
                   <div
                     className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
-                    style={{ animationDelay: "300ms" }}
+                    style={{ animationDelay: '300ms' }}
                   ></div>
                 </div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  AI is thinking...
-                </span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">AI is thinking...</span>
               </div>
             </div>
           </div>
@@ -275,9 +269,7 @@ export default function ChatBox({ config }: ChatBoxProps) {
         {error && (
           <div className="flex justify-center mb-4">
             <div className="max-w-[90%] rounded-lg px-4 py-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700">
-              <p className="text-sm text-red-800 dark:text-red-300">
-                {error}
-              </p>
+              <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
             </div>
           </div>
         )}
@@ -296,9 +288,7 @@ export default function ChatBox({ config }: ChatBoxProps) {
               🗑️ Clear conversation
             </button>
           )}
-          <span className="text-xs text-gray-400 ml-auto">
-            {providerLabel}
-          </span>
+          <span className="text-xs text-gray-400 ml-auto">{providerLabel}</span>
         </div>
         <form onSubmit={handleSubmit} className="flex gap-2">
           <textarea
@@ -322,12 +312,7 @@ export default function ChatBox({ config }: ChatBoxProps) {
               </>
             ) : (
               <>
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"

@@ -12,10 +12,7 @@ export async function PATCH(request: Request) {
     const { todoId, completed } = body;
 
     if (todoId === undefined || completed === undefined) {
-      return NextResponse.json(
-        { error: 'todoId and completed are required' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'todoId and completed are required' }, { status: 400 });
     }
 
     const result = await db
@@ -47,16 +44,13 @@ export async function POST(request: Request) {
     const { enrollmentId, title } = body;
 
     if (!enrollmentId || !title) {
-      return NextResponse.json(
-        { error: 'enrollmentId and title are required' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'enrollmentId and title are required' }, { status: 400 });
     }
 
     if (title.trim().length < 3) {
       return NextResponse.json(
         { error: 'Task title must be at least 3 characters' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -110,15 +104,10 @@ export async function DELETE(request: Request) {
     }
 
     if (todo[0].isCustom !== 1) {
-      return NextResponse.json(
-        { error: 'Only custom tasks can be deleted' },
-        { status: 403 },
-      );
+      return NextResponse.json({ error: 'Only custom tasks can be deleted' }, { status: 403 });
     }
 
-    await db
-      .delete(enrollmentTodos)
-      .where(eq(enrollmentTodos.id, Number(todoId)));
+    await db.delete(enrollmentTodos).where(eq(enrollmentTodos.id, Number(todoId)));
 
     return NextResponse.json({ success: true });
   } catch (error) {

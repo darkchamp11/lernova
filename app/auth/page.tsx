@@ -20,9 +20,7 @@ export default function AuthPage() {
 
     try {
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const body = isLogin
-        ? { username, password }
-        : { username, password, name, email };
+      const body = isLogin ? { username, password } : { username, password, name, email };
 
       const response = await fetch(endpoint, {
         method: 'POST',

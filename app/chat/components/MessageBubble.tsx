@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import type { Message } from "../hooks/useOllamaChat";
+import type { Message } from '../hooks/useOllamaChat';
 
 interface MessageBubbleProps {
   message: Message;
@@ -15,10 +15,7 @@ const formatMarkdown = (text: string): string => {
   let formatted = text;
 
   // Escape HTML entities first (prevent XSS)
-  formatted = formatted
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  formatted = formatted.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   // Code blocks (``` ... ```)
   formatted = formatted.replace(
@@ -43,34 +40,22 @@ const formatMarkdown = (text: string): string => {
     /^### (.+)$/gm,
     '<h3 class="text-base font-bold mt-4 mb-1">$1</h3>'
   );
-  formatted = formatted.replace(
-    /^## (.+)$/gm,
-    '<h2 class="text-lg font-bold mt-4 mb-1">$1</h2>'
-  );
-  formatted = formatted.replace(
-    /^# (.+)$/gm,
-    '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>'
-  );
+  formatted = formatted.replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold mt-4 mb-1">$1</h2>');
+  formatted = formatted.replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>');
 
   // Bold (**text** or __text__)
-  formatted = formatted.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  formatted = formatted.replace(/__(.+?)__/g, "<strong>$1</strong>");
+  formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  formatted = formatted.replace(/__(.+?)__/g, '<strong>$1</strong>');
 
   // Italic (*text* or _text_) — but not inside words like file_name
-  formatted = formatted.replace(/(?<!\w)\*([^*\n]+)\*(?!\w)/g, "<em>$1</em>");
-  formatted = formatted.replace(/(?<!\w)_([^_\n]+)_(?!\w)/g, "<em>$1</em>");
+  formatted = formatted.replace(/(?<!\w)\*([^*\n]+)\*(?!\w)/g, '<em>$1</em>');
+  formatted = formatted.replace(/(?<!\w)_([^_\n]+)_(?!\w)/g, '<em>$1</em>');
 
   // Unordered list items (- item or * item)
-  formatted = formatted.replace(
-    /^[\s]*[-*]\s+(.+)$/gm,
-    '<li class="ml-4 list-disc">$1</li>'
-  );
+  formatted = formatted.replace(/^[\s]*[-*]\s+(.+)$/gm, '<li class="ml-4 list-disc">$1</li>');
 
   // Ordered list items (1. item)
-  formatted = formatted.replace(
-    /^[\s]*\d+\.\s+(.+)$/gm,
-    '<li class="ml-4 list-decimal">$1</li>'
-  );
+  formatted = formatted.replace(/^[\s]*\d+\.\s+(.+)$/gm, '<li class="ml-4 list-decimal">$1</li>');
 
   // Wrap consecutive <li> items in <ul> or <ol>
   formatted = formatted.replace(
@@ -84,30 +69,26 @@ const formatMarkdown = (text: string): string => {
 
   // Convert remaining newlines to <br> (but not inside <pre> blocks and not double newlines already handled)
   // First, collapse triple+ newlines to double
-  formatted = formatted.replace(/\n{3,}/g, "\n\n");
+  formatted = formatted.replace(/\n{3,}/g, '\n\n');
   // Double newlines become paragraph breaks
   formatted = formatted.replace(/\n\n/g, '<div class="my-3"></div>');
   // Single newlines become <br>
-  formatted = formatted.replace(/\n/g, "<br />");
+  formatted = formatted.replace(/\n/g, '<br />');
 
   return formatted;
 };
 
 export default function MessageBubble({ message }: MessageBubbleProps) {
-  const isUser = message.role === "user";
-  const formattedContent = isUser
-    ? message.content
-    : formatMarkdown(message.content);
+  const isUser = message.role === 'user';
+  const formattedContent = isUser ? message.content : formatMarkdown(message.content);
 
   return (
-    <div
-      className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}
-    >
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
       <div
         className={`max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-3 ${
           isUser
-            ? "bg-blue-600 text-white rounded-br-none"
-            : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none"
+            ? 'bg-blue-600 text-white rounded-br-none'
+            : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none'
         }`}
       >
         {!isUser && (
@@ -127,19 +108,14 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                 />
               </svg>
             </div>
-            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-              AI Tutor
-            </span>
+            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">AI Tutor</span>
           </div>
         )}
         <div className="break-words leading-relaxed">
           {isUser ? (
             <span className="whitespace-pre-wrap">{message.content}</span>
           ) : (
-            <div
-              className="prose-chat"
-              dangerouslySetInnerHTML={{ __html: formattedContent }}
-            />
+            <div className="prose-chat" dangerouslySetInnerHTML={{ __html: formattedContent }} />
           )}
         </div>
       </div>

@@ -16,22 +16,21 @@ export default function ReviewPage() {
           {/* Book icon */}
           <div className="text-7xl mb-6">📝</div>
 
-          <h1 className="text-3xl font-bold text-gray-800 mb-3">
-            Keep Practicing!
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-3">Keep Practicing!</h1>
 
           <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-full font-bold text-lg mb-6">
             <span>📊</span> {score}%
           </div>
 
           <p className="text-gray-600 mb-4 leading-relaxed">
-            Good effort! Review the material and try again to improve your score.
-            Every attempt brings you closer to mastery.
+            Good effort! Review the material and try again to improve your score. Every attempt
+            brings you closer to mastery.
           </p>
 
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-8">
             <p className="text-amber-800 text-sm font-medium">
-              💡 Tip: Focus on the questions you got wrong and revisit the related concepts before retrying.
+              💡 Tip: Focus on the questions you got wrong and revisit the related concepts before
+              retrying.
             </p>
           </div>
 

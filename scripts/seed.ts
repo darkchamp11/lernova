@@ -12,7 +12,7 @@ const seedData = async () => {
     // Seed users
     console.log('Creating users...');
     const hashedPassword = await bcrypt.hash('password123', SALT_ROUNDS);
-    
+
     const sampleUsers = await db
       .insert(users)
       .values([

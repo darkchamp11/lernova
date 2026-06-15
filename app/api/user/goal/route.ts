@@ -49,10 +49,7 @@ export async function POST(request: Request) {
     const { userId, goal } = body;
 
     if (!userId || !goal) {
-      return NextResponse.json(
-        { error: 'userId and goal are required' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'userId and goal are required' }, { status: 400 });
     }
 
     const trimmedGoal = goal.trim();
@@ -107,7 +104,9 @@ For the keywords array:
     if (!data.valid) {
       return NextResponse.json({
         valid: false,
-        message: data.message || 'Please provide a valid learning goal that describes what you want to learn.',
+        message:
+          data.message ||
+          'Please provide a valid learning goal that describes what you want to learn.',
       });
     }
 
@@ -122,7 +121,7 @@ For the keywords array:
 
     return NextResponse.json({
       valid: true,
-      message: data.message || 'Great goal! Let\'s get started.',
+      message: data.message || "Great goal! Let's get started.",
       keywords: data.keywords || [],
       goal: trimmedGoal,
     });
@@ -130,7 +129,10 @@ For the keywords array:
     console.error('Error validating goal:', error);
 
     // If AI validation fails, do a basic sanity check and save anyway
-    const body = await request.clone().json().catch(() => null);
+    const body = await request
+      .clone()
+      .json()
+      .catch(() => null);
     if (body?.goal && body.goal.trim().length >= 10) {
       try {
         await db
@@ -151,9 +153,6 @@ For the keywords array:
       }
     }
 
-    return NextResponse.json(
-      { error: 'Failed to validate goal' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Failed to validate goal' }, { status: 500 });
   }
 }

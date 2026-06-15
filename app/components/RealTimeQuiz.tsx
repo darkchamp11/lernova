@@ -41,9 +41,7 @@ export default function RealTimeQuiz({ topic, difficulty }: RealTimeQuizProps) {
       const data = await response.json();
       // The API returns { questions: [...] } — extract the first MCQ
       const questions = data.questions || [];
-      const firstMcq = questions.find(
-        (q: { type: string }) => q.type === 'mcq',
-      );
+      const firstMcq = questions.find((q: { type: string }) => q.type === 'mcq');
       if (!firstMcq) {
         throw new Error('No MCQ question generated');
       }
@@ -145,9 +143,7 @@ export default function RealTimeQuiz({ topic, difficulty }: RealTimeQuizProps) {
         {quiz && (
           <div className="space-y-5">
             {/* Question */}
-            <p className="text-gray-800 font-medium text-lg leading-relaxed">
-              {quiz.question}
-            </p>
+            <p className="text-gray-800 font-medium text-lg leading-relaxed">{quiz.question}</p>
 
             {/* Options */}
             <div className="space-y-3">
@@ -178,9 +174,7 @@ export default function RealTimeQuiz({ topic, difficulty }: RealTimeQuizProps) {
             {isAnswered && (
               <div
                 className={`rounded-lg p-4 border ${
-                  isCorrect
-                    ? 'bg-emerald-50 border-emerald-200'
-                    : 'bg-amber-50 border-amber-200'
+                  isCorrect ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
                 }`}
               >
                 <p
